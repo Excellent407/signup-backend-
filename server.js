@@ -1,107 +1,112 @@
+// ======= SERVER SETUP =======
 const express = require("express");
-const bodyParser = require("body-parser");
+const mongoose = require("mongoose");
+const cors = require("cors");
 const nodemailer = require("nodemailer");
-const { MongoClient } = require("mongodb");
-const bcrypt = require("bcryptjs");
+const bodyParser = require("body-parser");
 
 const app = express();
+app.use(cors());
 app.use(bodyParser.json());
 
-// MongoDB connection
-const uri = "mongodb+srv://truzone:<db_password>@cluster0.tutojxn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-const client = new MongoClient(uri);
-const dbName = "truzoneDB";
+// ======= MONGODB CONNECTION =======
+mongoose.connect(
+  "mongodb+srv://truzone:0U4bRfUJPvdBJhS7@cluster0.tutojxn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
+  { useNewUrlParser: true, useUnifiedTopology: true }
+)
+.then(() => console.log("MongoDB connected"))
+.catch(err => console.error("MongoDB connection error:", err));
 
-// Gmail transport
+// ======= USER SCHEMA =======
+const userSchema = new mongoose.Schema({
+  first_name: String,
+  last_name: String,
+  email: { type: String, unique: true },
+  password: String,
+  ip_address: String,
+  device_name: String,
+  created_at: { type: Date, default: Date.now }
+});
+
+const User = mongoose.model("User", userSchema);
+
+// ======= TEMPORARY STORAGE FOR VERIFICATION =======
+const tempUsers = {};
+
+// ======= EMAIL SETUP =======
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "truzoneverifica564@gmail.com",
-    pass: "wuqqzhorrausnirj"
+    user: "truzoneverifica564@gmail.com", // your Gmail
+    pass: "wuqqzhorrausnirj"             // your App Password
   }
 });
 
-// temporary memory store
-let tempUsers = {};
-let otpStore = {};
+// ======= ROUTES =======
 
-// Generate OTP
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-// Route: signup request
+// --- SIGNUP ---
 app.post("/signup", async (req, res) => {
   const { first_name, last_name, email, password, ip_address, device_name } = req.body;
 
+  // Check if email already exists in DB
+  const exists = await User.findOne({ email });
+  if (exists) return res.json({ success: false, message: "Email already in use" });
+
+  // Generate 6-digit code
+  const code = Math.floor(100000 + Math.random() * 900000);
+
+  // Save temporarily
+  tempUsers[email] = { first_name, last_name, email, password, ip_address, device_name, code };
+
+  // Send email
+  const mailOptions = {
+    from: '"Truzone Verification" <truzoneverifica564@gmail.com>',
+    to: email,
+    subject: "Your Truzone Verification Code",
+    text: `Your 6-digit verification code is: ${code}`
+  };
+
   try {
-    await client.connect();
-    const db = client.db(dbName);
-    const users = db.collection("users");
-
-    // check if email already exists
-    const existingUser = await users.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: "Email already in use" });
-    }
-
-    const otp = generateOTP();
-    otpStore[email] = otp;
-    tempUsers[email] = { first_name, last_name, email, password, ip_address, device_name };
-
-    // send mail
-    await transporter.sendMail({
-      from: "truzoneverifica564@gmail.com",
-      to: email,
-      subject: "Truzone Verification Code",
-      text: `Your 6-digit verification code is: ${otp}`
-    });
-
+    await transporter.sendMail(mailOptions);
     res.json({ success: true, message: "Verification code sent" });
   } catch (err) {
-    console.error("Error in /signup:", err);
-    res.status(500).json({ success: false, message: "Internal error" });
+    console.error("Email error:", err);
+    res.json({ success: false, message: "Failed to send email" });
   }
 });
 
-// Route: verify OTP
+// --- VERIFY CODE ---
 app.post("/verify", async (req, res) => {
-  const { email, otp } = req.body;
+  const { email, code } = req.body;
 
-  if (!otpStore[email] || otpStore[email] !== otp) {
-    return res.status(400).json({ success: false, message: "Invalid OTP" });
-  }
+  const tempUser = tempUsers[email];
+  if (!tempUser) return res.json({ success: false, message: "No signup found for this email" });
 
-  try {
-    await client.connect();
-    const db = client.db(dbName);
-    const users = db.collection("users");
-
-    const userData = tempUsers[email];
-    const hashedPassword = await bcrypt.hash(userData.password, 12);
-
-    await users.insertOne({
-      first_name: userData.first_name,
-      last_name: userData.last_name,
-      email: userData.email,
-      password: hashedPassword,
-      ip_address: userData.ip_address,
-      device_name: userData.device_name,
-      created_at: new Date().toISOString()
+  if (parseInt(code) === tempUser.code) {
+    // Save to DB
+    const newUser = new User({
+      first_name: tempUser.first_name,
+      last_name: tempUser.last_name,
+      email: tempUser.email,
+      password: tempUser.password,
+      ip_address: tempUser.ip_address,
+      device_name: tempUser.device_name
     });
 
-    delete tempUsers[email];
-    delete otpStore[email];
-
-    res.json({ success: true, message: "User verified and saved" });
-  } catch (err) {
-    console.error("Error in /verify:", err);
-    res.status(500).json({ success: false, message: "Internal error" });
+    try {
+      await newUser.save();
+      // Remove from temp
+      delete tempUsers[email];
+      res.json({ success: true, message: "Email verified, user registered" });
+    } catch (err) {
+      console.error("DB save error:", err);
+      res.json({ success: false, message: "Failed to save user" });
+    }
+  } else {
+    res.json({ success: false, message: "Invalid verification code" });
   }
 });
 
-// Render/Heroku uses process.env.PORT
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Signup backend running on port ${PORT}`);
-});
+// ======= START SERVER =======
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`Signup backend running on port ${PORT}`));
