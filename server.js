@@ -55,8 +55,22 @@ app.post("/signup", async (req, res) => {
     from: '"Truzone Verification" <truzoneverifica564@gmail.com>',
     to: email,
     subject: "Your Truzone Verification Code",
-    text: `Your 6-digit verification code is: ${code}`
-  };
+  Hey there! 👋
+
+Welcome to Truzone – the place where your vibe meets your tribe!
+Your exclusive verification code is:
+
+${code} ✅
+
+Pop this code into the app to get started. Hurry, it’s valid for 10 minutes only! ⏰
+
+If you didn’t sign up, no worries – just ignore this message.
+
+Can’t wait to see you on Truzone! 🚀💖
+
+Cheers,
+The Truzone Team`
+ };
 
   try {
     await transporter.sendMail(mailOptions);
