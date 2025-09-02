@@ -10,7 +10,7 @@ app.use(bodyParser.json());
 
 // ======= MONGODB CONNECTION =======
 mongoose.connect(
-  "mongodb+srv://truzone:0U4bRfUJPvdBJhS7@cluster0.tutojxn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
+  "mongodb+srv://truzone:0U4bRfUJPvdBJhS7@cluster0.tutojxn.mongodb.net/signup?retryWrites=true&w=majority",
   { useNewUrlParser: true, useUnifiedTopology: true }
 )
 .then(() => console.log("MongoDB connected"))
