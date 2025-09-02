@@ -41,43 +41,40 @@ const transporter = nodemailer.createTransport({
 });
 
 // ======= ROUTES =======
-
 app.post("/signup", async (req, res) => {
   const { first_name, last_name, email, password, ip_address, device_name } = req.body;
 
-  const exists = await User.findOne({ email });
-  if (exists) return res.json({ success: false, message: "Email already in use" });
+  try {
+    const exists = await User.findOne({ email });
+    if (exists) return res.json({ success: false, message: "Email already in use" });
 
-  const code = Math.floor(100000 + Math.random() * 900000);
-  tempUsers[email] = { first_name, last_name, email, password, ip_address, device_name, code };
+    const code = Math.floor(100000 + Math.random() * 900000);
+    tempUsers[email] = { first_name, last_name, email, password, ip_address, device_name, code };
 
-  const mailOptions = {
-    from: '"Truzone Verification" <truzoneverifica564@gmail.com>',
-    to: email,
-    subject: "Your Truzone Verification Code",
-  Hey there! 👋
+    const mailOptions = {
+      from: '"Truzone Verification" <truzoneverifica564@gmail.com>',
+      to: email,
+      subject: "Your Truzone Verification Code",
+      text: `Hey there! 👋
 
 Welcome to Truzone – the place where your vibe meets your tribe!
-Your exclusive verification code is:
-
-${code} ✅
+Your exclusive verification code is: ${code} ✅
 
 Pop this code into the app to get started. Hurry, it’s valid for 10 minutes only! ⏰
 
-If you didn’t sign up, no worries – just ignore this message.
+If you didn’t sign up, just ignore this message.
 
 Can’t wait to see you on Truzone! 🚀💖
 
 Cheers,
 The Truzone Team`
- };
+    };
 
-  try {
     await transporter.sendMail(mailOptions);
     res.json({ success: true, message: "Verification code sent" });
   } catch (err) {
-    console.error("Email error:", err);
-    res.json({ success: false, message: "Failed to send email" });
+    console.error("Signup error:", err);
+    res.json({ success: false, message: "Failed to signup" });
   }
 });
 
