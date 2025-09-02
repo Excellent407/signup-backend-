@@ -1,4 +1,3 @@
-// ======= SERVER SETUP =======
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -27,38 +26,31 @@ const userSchema = new mongoose.Schema({
   device_name: String,
   created_at: { type: Date, default: Date.now }
 });
-
 const User = mongoose.model("User", userSchema);
 
-// ======= TEMPORARY STORAGE FOR VERIFICATION =======
+// ======= TEMPORARY STORAGE =======
 const tempUsers = {};
 
 // ======= EMAIL SETUP =======
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "truzoneverifica564@gmail.com", // your Gmail
-    pass: "wuqqzhorrausnirj"             // your App Password
+    user: "truzoneverifica564@gmail.com",
+    pass: "wuqqzhorrausnirj"
   }
 });
 
 // ======= ROUTES =======
 
-// --- SIGNUP ---
 app.post("/signup", async (req, res) => {
   const { first_name, last_name, email, password, ip_address, device_name } = req.body;
 
-  // Check if email already exists in DB
   const exists = await User.findOne({ email });
   if (exists) return res.json({ success: false, message: "Email already in use" });
 
-  // Generate 6-digit code
   const code = Math.floor(100000 + Math.random() * 900000);
-
-  // Save temporarily
   tempUsers[email] = { first_name, last_name, email, password, ip_address, device_name, code };
 
-  // Send email
   const mailOptions = {
     from: '"Truzone Verification" <truzoneverifica564@gmail.com>',
     to: email,
@@ -75,15 +67,12 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-// --- VERIFY CODE ---
 app.post("/verify", async (req, res) => {
   const { email, code } = req.body;
-
   const tempUser = tempUsers[email];
   if (!tempUser) return res.json({ success: false, message: "No signup found for this email" });
 
   if (parseInt(code) === tempUser.code) {
-    // Save to DB
     const newUser = new User({
       first_name: tempUser.first_name,
       last_name: tempUser.last_name,
@@ -95,7 +84,6 @@ app.post("/verify", async (req, res) => {
 
     try {
       await newUser.save();
-      // Remove from temp
       delete tempUsers[email];
       res.json({ success: true, message: "Email verified, user registered" });
     } catch (err) {
