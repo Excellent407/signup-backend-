@@ -1,7 +1,7 @@
+// ===== server.js (God Service) =====
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const nodemailer = require("nodemailer");
 const bodyParser = require("body-parser");
 
 const app = express();
@@ -10,102 +10,63 @@ app.use(bodyParser.json());
 
 // ======= MONGODB CONNECTION =======
 mongoose.connect(
-  "mongodb+srv://truzone:0U4bRfUJPvdBJhS7@cluster0.tutojxn.mongodb.net/signup?retryWrites=true&w=majority",
+  "mongodb+srv://truzone:0U4bRfUJPvdBJhS7@cluster0.tutojxn.mongodb.net/Truzone?retryWrites=true&w=majority",
   { useNewUrlParser: true, useUnifiedTopology: true }
 )
-.then(() => console.log("MongoDB connected"))
+.then(() => console.log("MongoDB connected (God Server)"))
 .catch(err => console.error("MongoDB connection error:", err));
 
-// ======= USER SCHEMA =======
-const userSchema = new mongoose.Schema({
-  first_name: String,
-  last_name: String,
-  email: { type: String, unique: true },
-  password: String,
-  ip_address: String,
-  device_name: String,
-  created_at: { type: Date, default: Date.now }
+// ======= ID GENERATOR SCHEMA =======
+const counterSchema = new mongoose.Schema({
+  name: { type: String, unique: true },
+  seq: { type: Number, default: 0 }
 });
-const User = mongoose.model("User", userSchema);
+const Counter = mongoose.model("Counter", counterSchema);
 
-// ======= TEMPORARY STORAGE =======
-const tempUsers = {};
+// ======= FUNCTION TO GENERATE CUSTOM IDs =======
+async function generateId(type) {
+  const prefix = {
+    user: "TRU",
+    post: "POST",
+    reel: "REEL",
+    save: "SAVE",
+    tag: "TAG",
+    share: "SHARE",
+    comment: "COMM",
+    like: "LIKE",
+    sound: "SND",
+    follower: "FOL",
+    message: "MSG",
+    notification: "NTF",
+    view: "VIEW",
+    report: "RPT",
+    activity: "ACT",
+    setting: "SET",
+    wallet: "WAL",
+    transaction: "TXN",
+    live: "LIVE"
+  }[type] || "GEN";
 
-// ======= EMAIL SETUP =======
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: "truzoneverifica564@gmail.com",
-    pass: "wuqqzhorrausnirj"
-  }
-});
+  const counter = await Counter.findOneAndUpdate(
+    { name: type },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
 
-// ======= ROUTES =======
-app.post("/signup", async (req, res) => {
-  const { first_name, last_name, email, password, ip_address, device_name } = req.body;
+  return `${prefix}${counter.seq.toString().padStart(6, "0")}`;
+}
 
+// ======= ROUTE: GET UNIQUE ID =======
+app.get("/id/:type", async (req, res) => {
   try {
-    const exists = await User.findOne({ email });
-    if (exists) return res.json({ success: false, message: "Email already in use" });
-
-    const code = Math.floor(100000 + Math.random() * 900000);
-    tempUsers[email] = { first_name, last_name, email, password, ip_address, device_name, code };
-
-    const mailOptions = {
-      from: '"Truzone Verification" <truzoneverifica564@gmail.com>',
-      to: email,
-      subject: "Your Truzone Verification Code",
-      text: `Hey there! 👋
-
-Welcome to Truzone – the place where your vibe meets your tribe!
-Your exclusive verification code is: ${code} ✅
-
-Pop this code into the app to get started. Hurry, it’s valid for 10 minutes only! ⏰
-
-If you didn’t sign up, just ignore this message.
-
-Can’t wait to see you on Truzone! 🚀💖
-
-Cheers,
-The Truzone Team`
-    };
-
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true, message: "Verification code sent" });
+    const id = await generateId(req.params.type);
+    res.json({ success: true, id });
   } catch (err) {
-    console.error("Signup error:", err);
-    res.json({ success: false, message: "Failed to signup" });
-  }
-});
-
-app.post("/verify", async (req, res) => {
-  const { email, code } = req.body;
-  const tempUser = tempUsers[email];
-  if (!tempUser) return res.json({ success: false, message: "No signup found for this email" });
-
-  if (parseInt(code) === tempUser.code) {
-    const newUser = new User({
-      first_name: tempUser.first_name,
-      last_name: tempUser.last_name,
-      email: tempUser.email,
-      password: tempUser.password,
-      ip_address: tempUser.ip_address,
-      device_name: tempUser.device_name
-    });
-
-    try {
-      await newUser.save();
-      delete tempUsers[email];
-      res.json({ success: true, message: "Email verified, user registered" });
-    } catch (err) {
-      console.error("DB save error:", err);
-      res.json({ success: false, message: "Failed to save user" });
-    }
-  } else {
-    res.json({ success: false, message: "Invalid verification code" });
+    console.error("ID generation error:", err);
+    res.json({ success: false, message: "Failed to generate ID" });
   }
 });
 
 // ======= START SERVER =======
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Signup backend running on port ${PORT}`));
+app.listen(PORT, () => console.log(`God server running on port ${PORT}`));
