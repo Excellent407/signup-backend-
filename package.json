@@ -1,19 +1,15 @@
 {
-  "name": "truzone-signup-backend",
+  "name": "truzone-backend",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "build": "echo 'No build needed for backend'",
-    "test": "echo 'No tests defined'"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "body-parser": "^1.20.2",
-    "nodemailer": "^6.9.5",
-    "mongodb": "^6.3.0",
-    "bcryptjs": "^2.4.3",
+    "mongoose": "^7.0.3",
     "cors": "^2.8.5",
-    "mongoose": "^7.6.1"
+    "nodemailer": "^6.9.3",
+    "body-parser": "^1.20.2"
   }
 }
